@@ -9,67 +9,83 @@ from sklearn.metrics.pairwise import cosine_similarity
 # =========================================================
 st.set_page_config(
     page_title="Mood-Aware Smart Recommendation System",
-    page_icon="🎧",
+    page_icon="💥",
     layout="wide"
 )
 
 # =========================================================
-# SAFE MOOD → KEYWORD MAP (NO KEYERROR POSSIBLE)
+# CUSTOM INSANE UI STYLES
 # =========================================================
-MOOD_KEYWORDS = {
-    "happy": ["fun", "uplifting", "comedy", "joy", "positive"],
-    "sad": ["emotional", "healing", "soft", "calm", "comfort"],
-    "focused": ["deep focus", "productivity", "study", "learning"],
-    "relaxed": ["chill", "lofi", "peaceful", "ambient"],
-    "adventurous": ["travel", "explore", "thrill", "experience"],
-    "romantic": ["love", "romantic", "emotional", "bonding"]
+st.markdown("""
+<style>
+body {
+    background: linear-gradient(-45deg, #0f172a, #020617, #020617, #0f172a);
+    background-size: 400% 400%;
+    animation: gradient 12s ease infinite;
 }
 
-DEFAULT_KEYWORDS = ["popular", "trending", "recommended"]
+@keyframes gradient {
+    0% {background-position: 0% 50%;}
+    50% {background-position: 100% 50%;}
+    100% {background-position: 0% 50%;}
+}
+
+.glass {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    border-radius: 18px;
+    padding: 22px;
+    margin-bottom: 18px;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 0 40px rgba(0,0,0,0.4);
+}
+
+.title {
+    font-size: 3rem;
+    font-weight: 800;
+    text-align: center;
+}
+
+.subtitle {
+    text-align: center;
+    color: #cbd5f5;
+    margin-bottom: 25px;
+}
+
+.confidence {
+    font-size: 1.2rem;
+    color: #38bdf8;
+    font-weight: bold;
+}
+
+button[kind="primary"] {
+    border-radius: 14px;
+    height: 3.2em;
+    font-size: 1.1rem;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # =========================================================
-# THEME TOGGLE
+# HEADER
 # =========================================================
-dark_mode = st.toggle("🌗 Dark / Light Mode")
-
-if dark_mode:
-    st.markdown(
-        """
-        <style>
-        body { background-color: #0f172a; color: white; }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+st.markdown('<div class="title">💥 Mood-Aware Smart Recommendation System</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">AI that understands your mood, intent & vibe</div>', unsafe_allow_html=True)
 
 # =========================================================
-# TITLE
-# =========================================================
-st.markdown(
-    "<h1 style='text-align:center;'>🎯 Mood-Aware Smart Recommendation System</h1>",
-    unsafe_allow_html=True
-)
-st.markdown(
-    "<p style='text-align:center;'>AI that understands mood, intent & vibe</p>",
-    unsafe_allow_html=True
-)
-
-st.divider()
-
-# =========================================================
-# LOAD DATA (FAST, LOCAL, SAFE)
+# DATA
 # =========================================================
 @st.cache_data
 def load_data():
     data = {
         "title": [
-            "Feel-Good Comedy Show",
-            "Deep Focus Study Playlist",
-            "Romantic Evening Music",
-            "Chill Lo-Fi Beats",
-            "Adventure Travel Documentary",
-            "Motivational Success Talk",
-            "Emotional Healing Podcast"
+            "😂 Feel-Good Comedy Show",
+            "🎯 Deep Focus Study Playlist",
+            "❤️ Romantic Evening Music",
+            "😌 Chill Lo-Fi Beats",
+            "🚀 Adventure Travel Documentary",
+            "🔥 Motivational Success Talk",
+            "🩹 Emotional Healing Podcast"
         ],
         "description": [
             "fun uplifting comedy entertainment",
@@ -86,99 +102,72 @@ def load_data():
 df = load_data()
 
 # =========================================================
-# NLP MODEL
+# NLP
 # =========================================================
 vectorizer = TfidfVectorizer(stop_words="english")
 X = vectorizer.fit_transform(df["description"])
 
-# =========================================================
-# SESSION STATE
-# =========================================================
-if "mood" not in st.session_state:
-    st.session_state.mood = "happy"
+MOOD_MAP = {
+    "😀 Happy": ["fun", "uplifting", "positive"],
+    "😢 Sad": ["emotional", "healing", "comfort"],
+    "🎯 Focused": ["study", "learning", "productivity"],
+    "😌 Relaxed": ["chill", "ambient", "peaceful"],
+    "🚀 Adventurous": ["travel", "explore", "thrill"],
+    "❤️ Romantic": ["love", "romantic", "bonding"]
+}
 
 # =========================================================
-# SIDEBAR CONTROLS
+# SIDEBAR
 # =========================================================
 st.sidebar.header("🎛 Personalization")
 
-mood_label_map = {
-    "😀 Happy": "happy",
-    "😢 Sad": "sad",
-    "🎯 Focused": "focused",
-    "😌 Relaxed": "relaxed",
-    "🚀 Adventurous": "adventurous",
-    "❤️ Romantic": "romantic"
-}
-
-selected_label = st.sidebar.radio(
-    "Select your mood",
-    list(mood_label_map.keys())
-)
-
-st.session_state.mood = mood_label_map[selected_label]
-
-intent = st.sidebar.text_input(
-    "🎯 What are you looking for?",
-    placeholder="music, podcast, learning, travel..."
-)
-
-chaos_mode = st.sidebar.toggle("🔥 Chaos Mode (Surprise Me)")
+mood_label = st.sidebar.radio("Select Mood", list(MOOD_MAP.keys()))
+intent = st.sidebar.text_input("🎯 What do you want?", placeholder="music, learning, podcast...")
+chaos_mode = st.sidebar.toggle("🔥 Chaos Mode")
 
 # =========================================================
-# RECOMMENDATION FUNCTION (KEYERROR-PROOF)
+# RECOMMENDER
 # =========================================================
 def recommend():
-    mood = st.session_state.mood
-
-    keywords = MOOD_KEYWORDS.get(mood, DEFAULT_KEYWORDS)
-
+    keywords = MOOD_MAP[mood_label]
     if chaos_mode:
-        keywords = random.choice(list(MOOD_KEYWORDS.values()))
+        keywords = random.choice(list(MOOD_MAP.values()))
 
     query = " ".join(keywords) + " " + intent
-    query_vec = vectorizer.transform([query])
+    q_vec = vectorizer.transform([query])
 
-    scores = cosine_similarity(query_vec, X)[0]
+    scores = cosine_similarity(q_vec, X)[0]
     df["score"] = scores
 
-    top_results = df.sort_values("score", ascending=False).head(3)
-    confidence = round(max(scores) * 100, 2)
-
-    return top_results, confidence, keywords
+    return df.sort_values("score", ascending=False).head(3), round(max(scores)*100, 2), keywords
 
 # =========================================================
-# MAIN BUTTON
+# ACTION
 # =========================================================
-if st.button("🚀 Recommend Now", use_container_width=True):
+if st.button("🚀 Generate Recommendations", use_container_width=True):
     results, confidence, used_keywords = recommend()
 
-    st.success(f"✨ Confidence Score: {confidence}%")
-    st.caption(f"🔑 AI Keywords Used: {', '.join(used_keywords)}")
-
-    st.divider()
+    st.markdown(f'<div class="confidence">✨ Confidence Score: {confidence}%</div>', unsafe_allow_html=True)
+    st.caption("🔑 Keywords used: " + ", ".join(used_keywords))
 
     for _, row in results.iterrows():
-        st.markdown(
-            f"""
-            ### 🎬 {row['title']}
-            📝 *{row['description']}*
-            """,
-            unsafe_allow_html=True
-        )
+        st.markdown(f"""
+        <div class="glass">
+            <h3>{row['title']}</h3>
+            <p>{row['description']}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
         with col1:
-            st.button("👍 Like", key=f"like_{row['title']}")
+            st.button("👍 Loved it", key=f"like_{row['title']}")
         with col2:
-            st.button("👎 Dislike", key=f"dislike_{row['title']}")
-
-        st.divider()
+            st.button("👎 Not my vibe", key=f"dislike_{row['title']}")
 
 # =========================================================
 # FOOTER
 # =========================================================
 st.markdown(
-    "<p style='text-align:center; font-size:12px;'>Built with ❤️ by Lavisha | AI-Powered Recommendation System</p>",
+    "<p style='text-align:center; opacity:0.6;'>Built with ❤️ by Lavisha • AI Resume Project</p>",
     unsafe_allow_html=True
 )
