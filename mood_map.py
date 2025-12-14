@@ -1,7 +1,8 @@
 mood_keywords = {
-    "Happy": ["fun", "exciting", "energetic"],
-    "Sad": ["calm", "peaceful", "emotional"],
-    "Stressed": ["relaxing", "calm", "slow"],
-    "Motivated": ["energetic", "action", "motivational"],
-    "Bored": ["fun", "adventure", "exciting"]
+    "😄 Happy": ["fun", "exciting", "uplifting"],
+    "😔 Sad": ["calm", "emotional", "soft"],
+    "😫 Stressed": ["relaxing", "peaceful", "slow"],
+    "🔥 Motivated": ["energetic", "power", "focus"],
+    "😴 Tired": ["calm", "slow", "smooth"],
+    "😎 Bored": ["fun", "adventure", "surprise"]
 }
