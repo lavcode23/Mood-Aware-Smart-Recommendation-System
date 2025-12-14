@@ -1,160 +1,184 @@
 import streamlit as st
 import pandas as pd
 import random
-import time
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from mood_map import mood_keywords
 
-# --------------------------------------------------
+# =========================================================
 # PAGE CONFIG
-# --------------------------------------------------
-st.set_page_config(page_title="NeuroPulse AI", page_icon="🧠", layout="wide")
+# =========================================================
+st.set_page_config(
+    page_title="Mood-Aware Smart Recommendation System",
+    page_icon="🎧",
+    layout="wide"
+)
 
-# --------------------------------------------------
-# THEME TOGGLE
-# --------------------------------------------------
-if "theme" not in st.session_state:
-    st.session_state.theme = "dark"
-
-def switch_theme():
-    st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
-
-# --------------------------------------------------
-# STYLES
-# --------------------------------------------------
-def load_css(theme):
-    if theme == "dark":
-        bg = "#0e1117"
-        card = "#161b22"
-        text = "#fafafa"
-        sub = "#9ca3af"
-    else:
-        bg = "#f9fafb"
-        card = "#ffffff"
-        text = "#111827"
-        sub = "#6b7280"
-
-    st.markdown(f"""
-    <style>
-    body {{ background-color: {bg}; color: {text}; }}
-    .header {{ font-size: 42px; font-weight: 700; }}
-    .sub {{ font-size: 16px; color: {sub}; }}
-    .card {{
-        background: {card};
-        padding: 20px;
-        border-radius: 14px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-load_css(st.session_state.theme)
-
-# --------------------------------------------------
-# DATA
-# --------------------------------------------------
-@st.cache_data
-def load_data():
-    return pd.read_csv("data.csv")
-
-df = load_data()
-tfidf = TfidfVectorizer(stop_words="english")
-X = tfidf.fit_transform(df["description"])
-
-# --------------------------------------------------
-# HEADER
-# --------------------------------------------------
-top_left, top_right = st.columns([4,1])
-
-with top_left:
-    st.markdown("<div class='header'>🧠 NeuroPulse</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub'>Emotion-aware AI recommendation system</div>", unsafe_allow_html=True)
-
-with top_right:
-    st.toggle("🌗 Dark / Light", on_change=switch_theme)
-
-st.markdown("---")
-
-# --------------------------------------------------
-# EMOJI MOOD SELECTOR
-# --------------------------------------------------
-mood_emojis = {
-    "Happy": "😄",
-    "Sad": "😔",
-    "Focused": "🎯",
-    "Relaxed": "🌿",
-    "Adventurous": "🚀",
-    "Romantic": "❤️"
+# =========================================================
+# SAFE MOOD → KEYWORD MAP (NO KEYERROR POSSIBLE)
+# =========================================================
+MOOD_KEYWORDS = {
+    "happy": ["fun", "uplifting", "comedy", "joy", "positive"],
+    "sad": ["emotional", "healing", "soft", "calm", "comfort"],
+    "focused": ["deep focus", "productivity", "study", "learning"],
+    "relaxed": ["chill", "lofi", "peaceful", "ambient"],
+    "adventurous": ["travel", "explore", "thrill", "experience"],
+    "romantic": ["love", "romantic", "emotional", "bonding"]
 }
 
-if "selected_mood" not in st.session_state:
-    st.session_state.selected_mood = "Happy"
+DEFAULT_KEYWORDS = ["popular", "trending", "recommended"]
 
-st.subheader("😊 Select Your Mood")
+# =========================================================
+# THEME TOGGLE
+# =========================================================
+dark_mode = st.toggle("🌗 Dark / Light Mode")
 
-cols = st.columns(len(mood_emojis))
-for col, (mood, emoji) in zip(cols, mood_emojis.items()):
-    if col.button(f"{emoji}\n{mood}"):
-        st.session_state.selected_mood = mood
+if dark_mode:
+    st.markdown(
+        """
+        <style>
+        body { background-color: #0f172a; color: white; }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
-st.success(f"Selected Mood: {st.session_state.selected_mood}")
+# =========================================================
+# TITLE
+# =========================================================
+st.markdown(
+    "<h1 style='text-align:center;'>🎯 Mood-Aware Smart Recommendation System</h1>",
+    unsafe_allow_html=True
+)
+st.markdown(
+    "<p style='text-align:center;'>AI that understands mood, intent & vibe</p>",
+    unsafe_allow_html=True
+)
 
-# --------------------------------------------------
-# INPUTS
-# --------------------------------------------------
-intent = st.text_input("🔎 What are you in the mood for?")
-energy = st.slider("⚡ Energy Level", 1, 10, 5)
-chaos = st.toggle("😈 Chaos Mode")
+st.divider()
 
-# --------------------------------------------------
-# RECOMMENDATION LOGIC
-# --------------------------------------------------
+# =========================================================
+# LOAD DATA (FAST, LOCAL, SAFE)
+# =========================================================
+@st.cache_data
+def load_data():
+    data = {
+        "title": [
+            "Feel-Good Comedy Show",
+            "Deep Focus Study Playlist",
+            "Romantic Evening Music",
+            "Chill Lo-Fi Beats",
+            "Adventure Travel Documentary",
+            "Motivational Success Talk",
+            "Emotional Healing Podcast"
+        ],
+        "description": [
+            "fun uplifting comedy entertainment",
+            "deep focus productivity study learning",
+            "romantic love emotional bonding",
+            "calm peaceful ambient chill music",
+            "travel explore adventure thrill experience",
+            "motivation success growth mindset",
+            "emotional comfort healing calm podcast"
+        ]
+    }
+    return pd.DataFrame(data)
+
+df = load_data()
+
+# =========================================================
+# NLP MODEL
+# =========================================================
+vectorizer = TfidfVectorizer(stop_words="english")
+X = vectorizer.fit_transform(df["description"])
+
+# =========================================================
+# SESSION STATE
+# =========================================================
+if "mood" not in st.session_state:
+    st.session_state.mood = "happy"
+
+# =========================================================
+# SIDEBAR CONTROLS
+# =========================================================
+st.sidebar.header("🎛 Personalization")
+
+mood_label_map = {
+    "😀 Happy": "happy",
+    "😢 Sad": "sad",
+    "🎯 Focused": "focused",
+    "😌 Relaxed": "relaxed",
+    "🚀 Adventurous": "adventurous",
+    "❤️ Romantic": "romantic"
+}
+
+selected_label = st.sidebar.radio(
+    "Select your mood",
+    list(mood_label_map.keys())
+)
+
+st.session_state.mood = mood_label_map[selected_label]
+
+intent = st.sidebar.text_input(
+    "🎯 What are you looking for?",
+    placeholder="music, podcast, learning, travel..."
+)
+
+chaos_mode = st.sidebar.toggle("🔥 Chaos Mode (Surprise Me)")
+
+# =========================================================
+# RECOMMENDATION FUNCTION (KEYERROR-PROOF)
+# =========================================================
 def recommend():
-    mood = st.session_state.selected_mood
-    keywords = mood_keywords[mood]
+    mood = st.session_state.mood
 
-    if chaos:
-        keywords = random.choice(list(mood_keywords.values()))
+    keywords = MOOD_KEYWORDS.get(mood, DEFAULT_KEYWORDS)
+
+    if chaos_mode:
+        keywords = random.choice(list(MOOD_KEYWORDS.values()))
 
     query = " ".join(keywords) + " " + intent
-    q_vec = tfidf.transform([query])
-    scores = cosine_similarity(q_vec, X)[0]
+    query_vec = vectorizer.transform([query])
 
+    scores = cosine_similarity(query_vec, X)[0]
     df["score"] = scores
-    top = df.sort_values("score", ascending=False).head(3)
-    return top, max(scores), keywords
 
-# --------------------------------------------------
-# OUTPUT
-# --------------------------------------------------
-if st.button("🚀 Generate Recommendations", use_container_width=True):
-    with st.spinner("Thinking like your brain 🧠..."):
-        time.sleep(1)
+    top_results = df.sort_values("score", ascending=False).head(3)
+    confidence = round(max(scores) * 100, 2)
 
-    results, confidence, keys = recommend()
+    return top_results, confidence, keywords
 
-    st.subheader("🎁 Recommended For You")
+# =========================================================
+# MAIN BUTTON
+# =========================================================
+if st.button("🚀 Recommend Now", use_container_width=True):
+    results, confidence, used_keywords = recommend()
 
-    for i, r in results.iterrows():
-        st.markdown(f"""
-        <div class='card'>
-            <b>{r['title']}</b><br>
-            <small>{r['type']}</small><br><br>
-            {r['description']}
-        </div>
-        """, unsafe_allow_html=True)
+    st.success(f"✨ Confidence Score: {confidence}%")
+    st.caption(f"🔑 AI Keywords Used: {', '.join(used_keywords)}")
 
-        # Feedback
-        fb_col1, fb_col2 = st.columns(2)
-        with fb_col1:
-            st.button("👍 Helpful", key=f"up_{i}")
-        with fb_col2:
-            st.button("👎 Not Helpful", key=f"down_{i}")
+    st.divider()
 
-    st.progress(min(int(confidence * 100), 100))
-    st.info(f"AI Confidence: {int(confidence*100)}% | Keywords used: {keys}")
+    for _, row in results.iterrows():
+        st.markdown(
+            f"""
+            ### 🎬 {row['title']}
+            📝 *{row['description']}*
+            """,
+            unsafe_allow_html=True
+        )
 
-    if chaos:
-        st.warning("Chaos Mode ON — unexpected but interesting picks 😈")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.button("👍 Like", key=f"like_{row['title']}")
+        with col2:
+            st.button("👎 Dislike", key=f"dislike_{row['title']}")
+
+        st.divider()
+
+# =========================================================
+# FOOTER
+# =========================================================
+st.markdown(
+    "<p style='text-align:center; font-size:12px;'>Built with ❤️ by Lavisha | AI-Powered Recommendation System</p>",
+    unsafe_allow_html=True
+)
