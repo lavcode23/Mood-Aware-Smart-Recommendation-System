@@ -1,38 +1,25 @@
 import streamlit as st
 import pandas as pd
 import random
+import time
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from mood_map import mood_keywords
 
-# ---------------- UI CONFIG ----------------
-st.set_page_config(
-    page_title="Emotion AI Recommender",
-    page_icon="🧠",
-    layout="centered"
-)
+st.set_page_config(page_title="NeuroPulse AI", page_icon="🧠")
 
-# ---------------- CSS MAGIC ----------------
+# ---------------- CSS ----------------
 st.markdown("""
 <style>
-body {
-    background: linear-gradient(135deg, #1f1c2c, #928dab);
-}
-.glass {
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(12px);
+body { background: linear-gradient(135deg,#0f0c29,#302b63,#24243e); color:white; }
+.card {
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(14px);
     padding: 20px;
-    border-radius: 16px;
+    border-radius: 18px;
     margin-bottom: 15px;
 }
-.big {
-    font-size: 26px;
-    font-weight: bold;
-}
-.explain {
-    font-size: 14px;
-    opacity: 0.85;
-}
+.confidence { font-size:14px; opacity:0.85; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -43,65 +30,66 @@ def load_data():
 
 df = load_data()
 
-# ---------------- VECTORIZATION ----------------
 tfidf = TfidfVectorizer(stop_words="english")
-content_matrix = tfidf.fit_transform(df["description"])
+X = tfidf.fit_transform(df["description"])
 
-# ---------------- TITLE ----------------
-st.markdown("<div class='big'>🧠 Emotion-Driven AI Recommendation Engine</div>", unsafe_allow_html=True)
-st.write("Not what you click. **How you FEEL.**")
+# ---------------- UI ----------------
+st.title("🧠 NeuroPulse")
+st.caption("Emotion-aware AI recommendations. Not clicks. Feelings.")
 
-# ---------------- USER INPUT ----------------
-mood = st.selectbox("✨ Select your current mood", list(mood_keywords.keys()))
-intent = st.text_input("💬 What do you want right now?", placeholder="relax, fun, focus, surprise")
-energy = st.slider("⚡ Energy Level", 1, 10, 5)
+mood = st.selectbox("Mood", list(mood_keywords.keys()))
+intent = st.text_input("What do you want right now?")
+energy = st.slider("Energy Level", 1, 10, 5)
 
-surprise_mode = st.toggle("🎁 Surprise Me")
+chaos = st.toggle("😈 Chaos Mode")
 
-# ---------------- RECOMMENDATION LOGIC ----------------
-def recommend(mood, intent, energy):
-    mood_words = mood_keywords[mood]
+# ---------------- RECOMMEND ----------------
+def recommend():
+    keywords = mood_keywords[mood]
+
+    if chaos:
+        keywords = random.choice(list(mood_keywords.values()))
 
     if intent.strip() == "":
-        intent = random.choice(mood_words)
+        intent_used = random.choice(keywords)
+    else:
+        intent_used = intent
 
-    query = " ".join(mood_words) + " " + intent
-    query_vec = tfidf.transform([query])
+    query = " ".join(keywords) + " " + intent_used
+    q_vec = tfidf.transform([query])
+    scores = cosine_similarity(q_vec, X)[0]
 
-    similarity = cosine_similarity(query_vec, content_matrix)[0]
-    df["score"] = similarity
+    df["score"] = scores
+    ranked = df.sort_values("score", ascending=False)
 
-    results = df.sort_values("score", ascending=False)
-
-    # Diversity filter
     seen = set()
     final = []
-    for _, row in results.iterrows():
+    for _, row in ranked.iterrows():
         if row["type"] not in seen:
             final.append(row)
             seen.add(row["type"])
         if len(final) == 3:
             break
 
-    return final, mood_words
+    return final, max(scores), keywords
 
 # ---------------- RUN ----------------
-if st.button("🚀 Generate My Recommendations"):
-    results, mood_words = recommend(mood, intent, energy)
+if st.button("🚀 Generate"):
+    with st.spinner("🧠 Reading your vibe..."):
+        time.sleep(1.5)
 
-    st.subheader("🎯 Your AI Picks")
+    results, confidence, keys = recommend()
+
     for r in results:
         st.markdown(
-            f"<div class='glass'><b>{r['title']}</b><br>"
-            f"<i>{r['type']}</i><br>"
-            f"<div class='explain'>{r['description']}</div></div>",
+            f"<div class='card'><b>{r['title']}</b><br>"
+            f"{r['type']}<br>{r['description']}</div>",
             unsafe_allow_html=True
         )
 
-    st.success(
-        f"🧠 AI Reasoning: You feel **{mood}**, energy level **{energy}**, "
-        f"and your intent matched keywords → {', '.join(mood_words)}"
-    )
+    st.progress(min(int(confidence * 100), 100))
+    st.write(f"AI Confidence: {int(confidence*100)}%")
+    st.success(f"Reason: mood={mood}, energy={energy}, matched keywords={keys}")
 
-    if surprise_mode:
+    if chaos:
         st.balloons()
